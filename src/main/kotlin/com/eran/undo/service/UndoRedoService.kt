@@ -15,7 +15,7 @@ class UndoRedoService : UndoRedo {
 
     override fun add(stringToAdd: String, position: Int?) {
         ActionManagerImpl.addToNormal(
-            TextAction(stringToAdd, position ?: stringToAdd.length)
+            TextAction(stringToAdd, position ?: 0)
         )
     }
 
@@ -57,33 +57,10 @@ class UndoRedoService : UndoRedo {
 
     override fun print(): String {
         return StringBuilder().apply {
-            val decorationMap: MutableMap<Pair<Int, Int>, Pair<String, String>?> = mutableMapOf()
             ActionManagerImpl.getNormalStack().forEach { action ->
                 when (action) {
-                    is TextAction -> this.append(action.value)
-                    is RemoveAction -> {
-                        // TODO: fix when word is removing the tags are wrapping over
-                        val positions: Pair<Int, Int> = action.fromPosition to action.toPosition
-                        decorationMap[positions] = null
-                        this.deleteRange(positions.first, positions.second + 1)
-                    }
-                    is DecorationAction -> {
-                        val positions: Pair<Int, Int> = action.fromPosition to action.toPosition
-
-                        // building multi tags to rap string later
-                        decorationMap[positions] = decorationMap[positions]?.copy(
-                            first = action.startElement.plus(decorationMap[positions]!!.first),
-                            second = decorationMap[positions]!!.second.plus(action.endElement)
-                        ) ?: action.startElement to action.endElement
-                    }
-                    else -> throw Exception("Action not implemented for type: ${action.javaClass}")
-                }
-            }
-            // attach tags to words by position
-            decorationMap.forEach { (positions: Pair<Int, Int>, decorationToAdd: Pair<String, String>?) ->
-                if (decorationToAdd != null) {
-                    this.insert(positions.second + 1, decorationToAdd.second)
-                    this.insert(positions.first, decorationToAdd.first)
+                    is TextAction -> this.append(action.execute(this.toString()))
+                    is DecorationAction -> this.setRange(0, this.length, action.execute(this.toString()))
                 }
             }
             ActionManagerImpl.clear()
